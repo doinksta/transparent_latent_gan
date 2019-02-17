@@ -17,17 +17,11 @@ assert ('README.md' in os.listdir('./')), 'Can not find project root, please cd 
 import src.tl_gan.generate_image as generate_image
 import src.tl_gan.feature_axis as feature_axis
 import src.tl_gan.feature_celeba_organize as feature_celeba_organize
+from src.notebooks.ranker import get_top_ten
 
-from src.notebooks.conversions import feature_to_image as feature_to_image, b64_image_to_feature, b64_image_to_prediction_image
+from src.notebooks.conversions import feature_to_image as feature_to_image, b64_image_to_feature, b64_image_to_prediction_image, dict_to_image
 
-'''
-for i in range(1):
-    for j in range(11):
-        feature_to_image([0] * i + [(5 - j) * 0.05] + [0] * (40 - i - 1), save_name='src/notebooks/out/test_{}th_val_{}.jpg'.format(i, (5 - j) * 0.05))
-'''
-
-
-from flask import Flask, request
+from flask import Flask, request, jsonify
 app = Flask(__name__)
 
 
@@ -48,16 +42,16 @@ def im_to_feat():
 @app.route('/feat_to_im', methods=['GET'])
 def feat_to_im():
     content = request.json
-    im = feature_to_image(content)
-    
+    print(content)
+    im = dict_to_image(content)
     return jsonify({"data": im})
 
 
 @app.route('/im_to_im', methods=['GET'])
 def im_to_im():
     content = request.json
-    ret = b64_image_to_prediction_image(content['data'])
-    return ret
+    im = b64_image_to_prediction_image(content['data'])
+    return jsonify({"data": im})
 
 
 @app.route('/nearest_ims', methods=['GET'])
@@ -65,7 +59,6 @@ def nearest_ims():
     content = request.json
     target_features = b64_image_to_feature(content['data'])
     
-    pd.read_csv('data/processed/UTKFace_features.csv')
-    
-    def euclidean_distance()
-    return ret
+    return jsonify({"data": get_top_ten(target_features)})
+
+app.run()

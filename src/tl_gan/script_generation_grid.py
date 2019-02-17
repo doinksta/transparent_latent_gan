@@ -12,7 +12,8 @@ import PIL
 
 
 ## load feature directions
-path_feature_direction = './asset_results/pg_gan_celeba_feature_direction_40'
+#path_feature_direction = './asset_results/pg_gan_celeba_feature_direction_40'
+path_feature_direction = './asset_results/stylegan_feature_direction_40'
 
 pathfile_feature_direction = glob.glob(os.path.join(path_feature_direction, 'feature_direction_*.pkl'))[-1]
 
@@ -26,11 +27,14 @@ feature_name = feature_direction_name['name']
 """ test_discovered features """
 
 # path to model code and weight
-path_pg_gan_code = './src/model/pggan'
-path_model = './asset_model/karras2018iclr-celebahq-1024x1024.pkl'
+#path_pg_gan_code = './src/model/pggan'
+path_pg_gan_code = './model/stylegan'
+#path_model = './asset_model/karras2018iclr-celebahq-1024x1024.pkl'
+path_model = './asset_model/karras2019stylegan-ffhq-1024x1024.pkl'
 sys.path.append(path_pg_gan_code)
 
-path_gan_explore = './asset_results/pggan_celeba_feature_axis_explore/'
+#path_gan_explore = './asset_results/pggan_celeba_feature_axis_explore/'
+path_gan_explore = './asset_results/stylegan_celeba_feature_axis_explore/'
 if not os.path.exists(path_gan_explore):
     os.mkdir(path_gan_explore)
 

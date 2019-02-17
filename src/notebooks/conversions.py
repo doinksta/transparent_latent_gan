@@ -25,7 +25,6 @@ import src.tl_gan.generate_image as generate_image
 import src.tl_gan.feature_axis as feature_axis
 import src.tl_gan.feature_celeba_organize as feature_celeba_organize
 
-
 # Statics
 
 # Create tf session
@@ -37,9 +36,9 @@ else:
     config.gpu_options.allow_growth = True
 
 sess = tf.InteractiveSession(config=config)
-    
+
 # Load feature directions and labels
-path_feature_direction = './asset_results/stylegan_feature_direction_40'
+path_feature_direction = './src/asset_results/stylegan_feature_direction_40'
 
 pathfile_feature_direction = glob.glob(os.path.join(path_feature_direction, 'feature_direction_*.pkl'))[-1]
 
@@ -53,19 +52,18 @@ feature_names = feature_direction_name['name']
 
 # path to model code and weight
 path_style_gan_code= './src/model/stylegan'
-path_model = './asset_model/karras2019stylegan-ffhq-1024x1024.pkl'
+path_model = './src/asset_model/karras2019stylegan-ffhq-1024x1024.pkl'
 sys.path.append(path_style_gan_code)
-
 try:
     with open(path_model, 'rb') as file:
         G, D, Gs = pickle.load(file)
 except FileNotFoundError:
     print('before running the code, download pre-trained model to project_root/asset_model/')
     raise
-    
-    
+
+
 # more code
-path_model_save = './asset_model/cnn_face_attr_celeba'
+path_model_save = './src/asset_model/cnn_face_attr_celeba'
 
 
 """
@@ -77,6 +75,7 @@ returns: an image as a result of the prediction model
 """
 def feature_to_image(features, feature_direction=feature_direction, save_name=None):
     feature_lock_status = np.zeros(len(feature_direction)).astype('bool')
+    print(features)
     print(feature_direction)
     print(type(feature_direction))
     
@@ -90,8 +89,10 @@ def feature_to_image(features, feature_direction=feature_direction, save_name=No
     step_size = 0.01
     
     for direction, feature_val, idx_feature in zip(feature_direction_transposed, features, range(len(features))):
+        # print(z_sample, feature_val, feature_directoion_disentangled[:, idx_feature], step_size)
         z_sample = np.add(z_sample, feature_val * feature_directoion_disentangled[:, idx_feature] * step_size)
     
+    sess = tf.InteractiveSession(config=config)
     x_sample = generate_image.gen_single_img(z=z_sample, Gs=Gs)
     
     if save_name != None:
@@ -119,8 +120,7 @@ def dict_to_image(feature_dict, feature_names=feature_names):
             features.append(feature_dict.get(feature_name))
         else:
             features.append(0)
-
-    feature_to_image(features)
+    return feature_to_image(features)
 
     
 def create_cnn_model(size_output=None, tf_print=False):

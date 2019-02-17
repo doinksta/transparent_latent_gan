@@ -21,7 +21,8 @@ def gen_single_img(z=None, Gs=None):
     :param Gs: generator network of GAN
     :return:   one rgb image, H*W*3
     """
-
+    
+    sess = tf.InteractiveSession()
     if z is None:  # if input not given
         z = np.random.randn(len_z)
     if len(z.shape) == 1:
