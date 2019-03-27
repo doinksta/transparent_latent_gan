@@ -35,8 +35,8 @@ if not os.path.exists(path_gan_explore):
 
 """ gen samples and save as pickle """
 
-n_batch = 8000
-batch_size = 32
+n_batch = 32
+batch_size = 4
 
 with tf.Session() as sess:
 
