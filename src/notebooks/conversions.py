@@ -16,7 +16,7 @@ from PIL import Image
 import PIL
 import base64
 import re
-
+import copy
 
 """ make sure this notebook is running from root directory """
 while os.path.basename(os.getcwd()) in ('notebooks', 'src'):
@@ -57,20 +57,25 @@ feature_names = feature_direction_name['name']
 path_style_gan_code= './src/model/stylegan'
 path_model = './asset_model/karras2019stylegan-ffhq-1024x1024.pkl'
 sys.path.append(path_style_gan_code)
-"""
-sess = tf.InteractiveSession()
+
 try:
     with open(path_model, 'rb') as file:
         G, D, Gs = pickle.load(file)
 except FileNotFoundError:
     print('before running the code, download pre-trained model to project_root/asset_model/')
     raise
-"""
 
+    
 # more code
 path_model_save = './asset_model/cnn_face_attr_celeba'
 
+z_sample_orig = np.random.randn(512)
 
+# Let us know what the random vector is, in case we need it later
+print(os.getcwd())
+print(z_sample_orig)
+np.savetxt('./z_sample_record.txt', z_sample_orig)
+  
 """
 Takes in a 40-D description of an individual, converts this into a 512-D space
 (using 'feature_direction', and returns an image of the predicted indvidual.
@@ -78,87 +83,102 @@ Takes in a 40-D description of an individual, converts this into a 512-D space
 @param  features: a list of 40 values
 returns: an image as a result of the prediction model
 """
-def feature_to_image(features, our_Gs, feature_direction=feature_direction, save_name=None):
+def feature_to_image(features, feature_direction=feature_direction, save_name=None):
     feature_lock_status = np.zeros(len(feature_direction)).astype('bool')
     #print(feature_direction)
     #print(type(feature_direction))
     
-    feature_directoion_disentangled = feature_axis.disentangle_feature_axis_by_idx(
+    feature_direction_disentangled = feature_axis.disentangle_feature_axis_by_idx(
         feature_direction, idx_base=np.flatnonzero(feature_lock_status))
     
-#    z_sample = np.random.randn(512)
-    z_sample = np.array([0] * 512)
+    # z_sample = np.random.randn(512)
+    # VERY SIGNIFICANT: the base image we will change off of.
+    # z_sample = np.array([0.69] * 512)
+    z_sample = copy.copy(z_sample_orig)
     feature_direction_transposed = np.transpose(feature_direction)
 
-    step_size = 0.01
+    # Multiplier for the input attribute magnitudes
+    step_size = 1
     
     for direction, feature_val, idx_feature in zip(feature_direction_transposed, features, range(len(features))):
-        z_sample = np.add(z_sample, feature_val * feature_directoion_disentangled[:, idx_feature] * step_size)
-    """
-    sess = tf.InteractiveSession()
-    try:
-        with open(path_model, 'rb') as file:
-            G, D, Gs = pickle.load(file)
-    except FileNotFoundError:
-        print('before running the code, download pre-trained model to project_root/asset_model/')
-        raise
-    """
+        # print(feature_val, feature_direction_disentangled[:, 1], step_size)
+        z_sample = np.add(z_sample, feature_val * feature_direction_disentangled[:, idx_feature] * step_size)
+
     #print('general feature vec', features)
-    #print('z sample', z_sample[:20])
+    print('z sample \nSmallest:', sorted(z_sample)[:20],
+          '\nLargest:', sorted(z_sample, reverse=True)[:20],
+          '\nmean:', z_sample.mean(),
+          '\nstd:', z_sample.std())
+    z_sample_normal = (z_sample - z_sample.mean()) / z_sample.std()
+    # Generate the image
+    x_sample = generate_image.gen_single_img(z=z_sample_normal, Gs=Gs)
     
-    x_sample = generate_image.gen_single_img(z=z_sample, Gs=our_Gs)
+    # Save image if given save name
     if save_name != None:
         generate_image.save_img(x_sample, save_name)
     
-
+    # Transform RGB to jpeg image
     im = Image.fromarray(x_sample)
-    
 
     buffered = BytesIO()
     im.save(buffered, format="JPEG")
-    #img_str = buffered.getvalue()
     img_str = base64.b64encode(buffered.getvalue())
-        
+
     return img_str
 
-    
+# How these features are named in the input dictionary
+name_map = {
+    'Bald': 'bald',
+    'Big_Nose': 'nose_size',
+    'Blond_Hair': 'blond_hair',
+    'Black_Hair': 'black_hair',
+    'Gray_Hair': 'gray_hair',
+    'Eyeglasses': 'eyeglasses',
+    'Goatee': 'goatee',
+    'Male': 'gender',
+    'Mustache': 'mustache',
+    'No_Beard': 'beard',
+    'Young': 'age',
+    'Pale_Skin': 'skin_tone',
+    'Pointy_Nose': 'nose_pointy',
+    'Receding_Hairline': 'hairline',
+    'Chubby': 'chubby',
+    'Bangs': 'bangs',
+    'Wavy_Hair': 'wavy_hair'
+}
+
 """
 Helper method to take in a feature dictionary that is partially filled, and generate a prediction image from it.
 """
-def dict_to_image(feature_dict, our_Gs, feature_names=feature_names):
-    features = []
+
+def dict_to_image(feature_dict, feature_names=feature_names):
+    """ Yisong's features
+    features = [-0.9988141 , -0.9026123 ,  0.71585715,  0.29529598, -0.99999505,
+       -0.9993743 , -0.92683053, -0.3564056 , -0.262478  , -0.8529761 ,
+       -0.9999352 , -0.3058496 , -0.7243906 , -0.98614675, -0.994794  ,
+       -0.99999994, -0.9932561 , -0.9999908 , -0.90558565,  0.9861193 ,
+       -0.38072374, -0.47803947, -0.9983372 , -0.99449646,  0.999942  ,
+        0.8409294 , -0.9999835 , -0.9738376 , -0.97882295, -0.996268  ,
+       -0.99997604,  0.99272585, -0.03712079, -0.8042389 , -0.23564088,
+       -0.9998438 , -0.8290631 , -0.70884293, -0.9523416 ,  0.9941767 ]
     """
+    features = []
+    """ Full feature name list
     ['5_o_Clock_Shadow', 'Arched_Eyebrows', 'Attractive', 'Bags_Under_Eyes', 'Bald', 'Bangs', 'Big_Lips', 'Big_Nose', 'Black_Hair', 'Blond_Hair', 'Blurry', 'Brown_Hair', 'Bushy_Eyebrows', 'Chubby', 'Double_Chin', 'Eyeglasses', 'Goatee', 'Gray_Hair', 'Heavy_Makeup', 'High_Cheekbones', 'Male', 'Mouth_Slightly_Open', 'Mustache', 'Narrow_Eyes', 'No_Beard', 'Oval_Face', 'Pale_Skin', 'Pointy_Nose', 'Receding_Hairline', 'Rosy_Cheeks', 'Sideburns', 'Smiling', 'Straight_Hair', 'Wavy_Hair', 'Wearing_Earrings', 'Wearing_Hat', 'Wearing_Lipstick', 'Wearing_Necklace', 'Wearing_Necktie', 'Young']
     """
-    name_map = {
-        'Bald': 'bald',
-        'Big_Nose': 'nose_size',
-        'Blond_Hair': 'blond_hair',
-        'Black_Hair': 'black_hair',
-        'Gray_Hair': 'gray_hair',
-        'Eyeglasses': 'eyeglasses',
-        'Goatee': 'goatee',
-        'Male': 'gender',
-        'Mustache': 'mustache',
-        'No_Beard': 'beard',
-        'Young': 'age',
-        'Pale_Skin': 'skin_tone',
-        'Pointy_Nose': 'nose_pointy',
-        'Receding_Hairline': 'hairline',
-        'Chubby': 'chubby',
-        'Bangs': 'bangs',
-        'Wavy_Hair': 'wavy_hair'
-    }
-
     for feature_name in feature_names:
+        # Modify the input attribute based on the input dictionary
+        # Search for key matches to original feature names, and frontend naming
+        feature_value = 0
         if feature_name in feature_dict.keys():
-            features.append(feature_dict.get(feature_name))
+            feature_value = feature_dict[feature_name]
         if feature_name in name_map and name_map[feature_name] in feature_dict.keys():
-            features.append(feature_dict.get(name_map[feature_name]))
-        else:
-            features.append(0)
+            feature_value = feature_dict[name_map[feature_name]]    
+        if type(feature_value) == str:
+            feature_value = 0
 
-    return feature_to_image(features, our_Gs)
+        features.append(feature_value)
+    return feature_to_image(features)
 
     
 def create_cnn_model(size_output=None, tf_print=False):
@@ -176,10 +196,11 @@ def create_cnn_model(size_output=None, tf_print=False):
         size_output = df_attr.shape[1]
 
     # Load the convolutional layers of pretrained model: mobilenet
-    base_model = tf.keras.applications.mobilenet.MobileNet(include_top=False, input_shape=(128,128,3),
-                                                          alpha=1, depth_multiplier=1,
-                                                          dropout=0.001, weights="imagenet",
-                                                          input_tensor=None, pooling=None)
+    base_model = tf.keras.applications.mobilenet.MobileNet(
+        include_top=False, input_shape=(128,128,3),
+        alpha=1, depth_multiplier=1,
+        dropout=0.001, weights="imagenet",
+        input_tensor=None, pooling=None)
 
     # add fully connected layers
     fc0 = base_model.output
@@ -206,43 +227,48 @@ def get_list_model_save(path_model_save=path_model_save):
 
 model = create_cnn_model(size_output=40)
 model.load_weights(get_list_model_save()[-1])
+print(model.summary())
 
 def image_to_feature(image_path, model=model):
     img = np.asarray(PIL.Image.open(image_path).resize((128, 128), resample=PIL.Image.BILINEAR))
     x = np.stack([img], axis=0)
+    x = x[:,:,:,:3]
     print(x)
     return model.predict(preprocess_input(x))
 
 def b64_image_to_feature(b64_str, model=model):
     print(type(b64_str))
+    if type(b64_str) == dict:
+      print(b64_str.keys())
+      b64_str = b64_str['data']
     image_data = re.sub('^data:image/.+;base64,', '', b64_str)
-    img = np.asarray(PIL.Image.open(BytesIO(base64.b64decode(image_data))).resize((128, 128), resample=PIL.Image.BILINEAR))
+    img = np.asarray(PIL.Image.open(
+      BytesIO(base64.b64decode(image_data))
+    ).resize((128, 128), resample=PIL.Image.BILINEAR))
+
     x = np.stack([img], axis=0)
+    x = x[:,:,:,:3]
+    print(x[:, :2, :2, :])
+    print(x.shape)
     raw_features = model.predict(preprocess_input(x)).flatten()
     
     # Recreate the dictionary form    
     ret = {}
     
     for label, value in zip(feature_celeba_organize.feature_name_celeba_org, raw_features):
-        ret[label] = value
+        ret[label] = float(value)
     
     return ret
 
 
+def convert_naming_backend_to_frontend(feature_dict):
+    new_feature_dict = {}
+    for feature in feature_dict:
+        if name_map.get(feature) is not None:
+            new_feature_dict[name_map[feature]] = feature_dict[feature]
+    
+    return new_feature_dict
+  
+
 def b64_image_to_prediction_image(b64_str):
-    return feature_to_image(b64_image_to_feature(b64_str))
-
-"""if __name__ == "__main__":
-    np.array(image_to_feature("data/processed/cyberextender/000420/000007.jpg")[0])
-
-    feature_names = ['5_o_Clock_Shadow', 'Arched_Eyebrows', 'Attractive', 'Bags_Under_Eyes', 'Bald', 'Bangs', 'Big_Lips', 'Big_Nose', 'Black_Hair', 'Blond_Hair', 'Blurry', 'Brown_Hair', 'Bushy_Eyebrows', 'Chubby', 'Double_Chin', 'Eyeglasses', 'Goatee', 'Gray_Hair', 'Heavy_Makeup', 'High_Cheekbones', 'Male', 'Mouth_Slightly_Open', 'Mustache', 'Narrow_Eyes', 'No_Beard', 'Oval_Face', 'Pale_Skin', 'Pointy_Nose', 'Receding_Hairline', 'Rosy_Cheeks', 'Sideburns', 'Smiling', 'Straight_Hair', 'Wavy_Hair', 'Wearing_Earrings', 'Wearing_Hat', 'Wearing_Lipstick', 'Wearing_Necklace', 'Wearing_Necktie', 'Young']
-    feature_list= []
-    for i, img_name in enumerate(glob.glob("./data/processed/UTKFace/*.jpg")):
-        feature_list.append(image_to_feature(img_name)[0])
-        if i % 100 == 0:
-            print(i)
-
-    df = pd.DataFrame(feature_list, columns=feature_names)
-    df.to_csv("./data/processed/UTKFace_features.csv")
-
-    print(df.head())"""
+    return dict_to_image(b64_image_to_feature(b64_str))
